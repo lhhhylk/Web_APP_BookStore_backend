@@ -1,0 +1,13 @@
+package com.bookstore_eureka_server;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+
+@SpringBootTest
+class BookstoreEurekaServerApplicationTests {
+
+    @Test
+    void contextLoads() {
+    }
+
+}
