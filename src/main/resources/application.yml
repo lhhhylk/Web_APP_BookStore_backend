@@ -1,0 +1,85 @@
+spring:
+  application:
+    name: community-service
+  profiles:
+    active: dev  # 默认激活开发环境
+  datasource:
+    url: jdbc:mysql://localhost:3306/bookstore2?serverTimezone=UTC&useSSL=false&allowPublicKeyRetrieval=true
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: lhylhylhy050802
+    hikari:  # 配置 HikariCP 连接池
+      maximum-pool-size: 10
+      minimum-idle: 5
+      idle-timeout: 30000
+      connection-timeout: 30000
+  jpa:
+    database-platform: org.hibernate.dialect.MySQL8Dialect
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  data:
+    redis:
+      repositories:
+        enabled: true
+      host: localhost
+      port: 6379
+      password: 123456
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: order-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      auto-offset-reset: latest
+      properties:
+        spring:
+          deserializer:
+            value:
+              delegate:
+                class: org.springframework.kafka.support.serializer.JsonDeserializer  # 包装 JsonDeserializer
+            key:
+              delegate:
+                class: org.apache.kafka.common.serialization.StringDeserializer
+          json:
+            trusted:
+              packages: com.bookstore.bookstore_backend.model.order
+server:
+  port: 8082
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    fetch-registry: true
+    register-with-eureka: true
+  instance:
+    prefer-ip-address: true
+    hostname: localhost
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 5000  # Feign 连接超时（毫秒）
+        readTimeout: 5000     # Feign 读取超时（毫秒）
+        loggerLevel: basic    # Feign 日志级别（可选：none, basic, headers, full）
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics  # 暴露 Actuator 端点
+logging:
+  level:
+    root: INFO
+    com.example.community: DEBUG  # CommunityService 包下的日志级别
+    org.hibernate.SQL: DEBUG  # 见SQL初始化
+kafka:
+  topics:
+    order-request: order_topic
+    order-result: order_topic_result
+

@@ -1,0 +1,146 @@
+  {
+    "title":"百年孤独",
+    "author":"加西亚·马尔克斯",
+    "cover":"https://img1.doubanio.com/view/subject/l/public/s27237850.jpg",
+    "description":"《百年孤独》是哥伦比亚作家加西亚·马尔克斯的代表作，被誉为拉丁美洲文学的里程碑。小说通过描绘布恩迪亚家族七代人的兴衰史，展现了拉丁美洲的历史、文化和社会变迁。作品融合了现实与魔幻元素，创造了一个充满奇幻色彩的世界，探讨了孤独、命运、时间等主题。小说语言优美，情节跌宕起伏，是20世纪最重要的文学作品之一。",
+    "tags":"魔幻现实主义,拉丁美洲文学",
+    "price":"29.90",
+    "inventory":"100"
+  }
+  [
+    {
+      "title": "活着",
+      "author": "余华",
+      "cover": "https://img3.doubanio.com/view/subject/l/public/s29053580.jpg",
+      "description": "《活着》是余华的代表作，讲述了主人公福贵在动荡年代中的人生悲欢。小说通过平凡人物的命运，展现了中国现代史的残酷与温情，探讨了生命的坚韧与意义。语言朴实，情感深沉，是中国当代文学的经典之作。",
+      "tags": ["现实主义", "中国文学", "人生"],
+      "price": "28.00",
+      "inventory": "120"
+    },
+    {
+      "title": "红楼梦",
+      "author": "曹雪芹",
+      "cover": "https://img1.doubanio.com/view/subject/l/public/s1070959.jpg",
+      "description": "《红楼梦》是中国古典文学的巅峰之作，描绘了贾、史、王、薛四大家族的兴衰，以及贾宝玉、林黛玉等人的爱情悲剧。小说以细腻的笔触展现了封建社会的世态炎凉，蕴含深刻的社会哲理。",
+      "tags": ["古典文学", "爱情", "封建社会"],
+      "price": "59.90",
+      "inventory": "80"
+    },
+    {
+      "title": "三体",
+      "author": "刘慈欣",
+      "cover": "https://img3.doubanio.com/view/subject/l/public/s2768378.jpg",
+      "description": "《三体》是刘慈欣的科幻巨著，讲述了人类与外星文明三体之间的接触与冲突。小说融合了科学、哲学与人性思考，展现了宏大的宇宙图景，是中国科幻文学的里程碑。",
+      "tags": ["科幻", "哲学", "宇宙"],
+      "price": "35.00",
+      "inventory": "150"
+    },
+    {
+      "title": "围城",
+      "author": "钱钟书",
+      "cover": "https://img3.doubanio.com/view/subject/l/public/s1070222.jpg",
+      "description": "《围城》是钱钟书的经典小说，通过主人公方鸿渐的经历，讽刺了民国时期知识分子的生活困境与人性弱点。小说语言幽默犀利，充满智慧与哲理。",
+      "tags": ["讽刺", "知识分子", "爱情"],
+      "price": "25.00",
+      "inventory": "90"
+    },
+    {
+      "title": "平凡的世界",
+      "author": "路遥",
+      "cover": "https://img3.doubanio.com/view/subject/l/public/s1144911.jpg",
+      "description": "《平凡的世界》通过孙少安、孙少平兄弟的奋斗故事，展现了中国农村在改革开放前后的社会变迁。小说歌颂了普通人面对苦难时的坚韧与希望。",
+      "tags": ["现实主义", "农村", "奋斗"],
+      "price": "45.00",
+      "inventory": "110"
+    },
+    {
+      "title": "白鹿原",
+      "author": "陈忠实",
+      "cover": "https://img1.doubanio.com/view/subject/l/public/s1074261.jpg",
+      "description": "《白鹿原》以白鹿村为背景，描绘了白姓和鹿姓两大家族的恩怨纠葛，展现了中国农村在20世纪初的动荡与变迁。小说语言厚重，历史感强烈。",
+      "tags": ["历史", "家族", "农村"],
+      "price": "39.90",
+      "inventory": "95"
+    },
+    {
+      "title": "呐喊",
+      "author": "鲁迅",
+      "cover": "https://img3.doubanio.com/view/subject/l/public/s2900601.jpg",
+      "description": "《呐喊》是鲁迅的短篇小说集，收录了《狂人日记》《孔乙己》等经典篇目，深刻批判了封建社会的弊端，揭示了国民性的弱点。",
+      "tags": ["批判现实", "短篇小说", "国民性"],
+      "price": "22.00",
+      "inventory": "130"
+    },
+    {
+      "title": "梦里花落知多少",
+      "author": "三毛",
+      "cover": "https://img3.doubanio.com/view/subject/l/public/s1031132.jpg",
+      "description": "《梦里花落知多少》是三毛的散文集，记录了她在撒哈拉沙漠的生活与情感经历。文字真挚感人，充满浪漫与哲思。",
+      "tags": ["散文", "旅行", "情感"],
+      "price": "26.50",
+      "inventory": "100"
+    },
+    {
+      "title": "边城",
+      "author": "沈从文",
+      "cover": "https://img3.doubanio.com/view/subject/l/public/s1015872.jpg",
+      "description": "《边城》是沈从文的代表作，讲述了湘西小镇翠翠的爱情故事。小说以诗意的语言描绘了湘西的自然风光与民风民情，充满纯真与美好。",
+      "tags": ["田园", "爱情", "湘西"],
+      "price": "20.00",
+      "inventory": "85"
+    },
+    {
+      "title": "许三观卖血记",
+      "author": "余华",
+      "cover": "https://img3.doubanio.com/view/subject/l/public/s1096968.jpg",
+      "description": "《许三观卖血记》通过许三观一家的生活，展现了中国普通家庭在艰难岁月中的挣扎与温情。小说语言平实，情感真挚。",
+      "tags": ["现实主义", "家庭", "苦难"],
+      "price": "27.00",
+      "inventory": "105"
+    },
+    {
+      "title": "蛙",
+      "author": "莫言",
+      "cover": "https://img3.doubanio.com/view/subject/l/public/s6807265.jpg",
+      "description": "《蛙》是莫言的代表作，以中国计划生育政策为背景，讲述了乡村医生姑姑的人生故事。小说融合了现实与魔幻，探讨了人性与道德。",
+      "tags": ["魔幻现实主义", "历史", "道德"],
+      "price": "32.00",
+      "inventory": "90"
+    },
+    {
+      "title": "倾城之恋",
+      "author": "张爱玲",
+      "cover": "https://img3.doubanio.com/view/subject/l/public/s1015902.jpg",
+      "description": "《倾城之恋》是张爱玲的经典小说，讲述了白流苏与范柳原在香港沦陷前的爱情故事。小说细腻地刻画了人物心理与时代背景。",
+      "tags": ["爱情", "女性", "民国"],
+      "price": "23.50",
+      "inventory": "100"
+    },
+    {
+      "title": "黄金时代",
+      "author": "王小波",
+      "cover": "https://img3.doubanio.com/view/subject/l/public/s1446653.jpg",
+      "description": "《黄金时代》是王小波的代表作，讲述了知青陈清扬与王二的爱情故事。小说语言幽默，充满对自由与人性的思考。",
+      "tags": ["知青", "爱情", "自由"],
+      "price": "24.00",
+      "inventory": "95"
+    },
+    {
+      "title": "解忧杂货店",
+      "author": "东野圭吾",
+      "cover": "https://img3.doubanio.com/view/subject/l/public/s28387385.jpg",
+      "description": "《解忧杂货店》是东野圭吾的温情小说，讲述了一家杂货店通过信件连接过去与未来的故事。小说结构巧妙，充满人性关怀。",
+      "tags": ["悬疑", "温情", "日本文学"],
+      "price": "30.00",
+      "inventory": "110"
+    },
+    {
+      "title": "月亮与六便士",
+      "author": "毛姆",
+      "cover": "https://img3.doubanio.com/view/subject/l/public/s2659601.jpg",
+      "description": "《月亮与六便士》是毛姆的经典小说，讲述了主人公斯特里克兰放弃安稳生活追逐艺术梦想的故事。小说探讨了理想与现实的冲突。",
+      "tags": ["理想", "艺术", "人生"],
+      "price": "29.00",
+      "inventory": "85"
+    }
+  ]
