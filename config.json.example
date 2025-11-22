@@ -1,0 +1,12 @@
+{
+  "description": "MCP服务器配置文件示例",
+  "database": {
+    "host": "localhost",
+    "port": 3306,
+    "database": "bookstore2",
+    "user": "root",
+    "password": "lhylhylhy050802"
+  },
+  "note": "此文件仅供参考，实际配置通过环境变量或直接修改server.py中的DB_CONFIG"
+}
+
