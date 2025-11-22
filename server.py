@@ -38,6 +38,39 @@ def get_db_connection():
         raise Exception(f"数据库连接失败: {str(e)}")
 
 
+def get_tags_table_info(cursor):
+    """检测book_tags表的结构，返回表名和book_id列名"""
+    # 可能的表名
+    possible_table_names = ['book_tags', 'books_tags', 'Book_tags']
+    # 可能的book_id列名
+    possible_id_columns = ['books_id', 'book_id', 'Book_id', 'booksId']
+
+    for table_name in possible_table_names:
+        cursor.execute(f"SHOW TABLES LIKE '{table_name}'")
+        if cursor.fetchone():
+            # 表存在，检查列结构
+            cursor.execute(f"DESCRIBE {table_name}")
+            columns = cursor.fetchall()
+
+            # 处理 dictionary cursor 和普通 cursor 两种情况
+            if columns and isinstance(columns[0], dict):
+                column_names = [col['Field'] for col in columns]
+            else:
+                column_names = [col[0] for col in columns]
+
+            # 查找book_id列
+            for id_col in possible_id_columns:
+                if id_col in column_names:
+                    return table_name, id_col
+
+            # 如果没找到，尝试查找包含'id'的列（排除tags列）
+            for col_name in column_names:
+                if 'id' in col_name.lower() and col_name.lower() != 'tags':
+                    return table_name, col_name
+
+    return None, None
+
+
 @app.list_tools()
 async def list_tools() -> list[Tool]:
     """列出所有可用的工具"""
@@ -111,33 +144,52 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> Sequence[TextConten
             keyword = arguments.get("keyword")
             tag = arguments.get("tag")
             limit = arguments.get("limit", 20)
+            # 确保limit是有效的整数
+            try:
+                limit = int(limit) if limit is not None else 20
+                if limit <= 0:
+                    limit = 20
+            except (ValueError, TypeError):
+                limit = 20
             result = await search_books(keyword, tag, limit)
             return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False, indent=2))]
-        
+
         elif name == "get_book_by_id":
             book_id = arguments.get("book_id")
             if not book_id:
                 raise ValueError("book_id参数是必需的")
             result = await get_book_by_id(book_id)
             return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False, indent=2))]
-        
+
         elif name == "get_all_tags":
             result = await get_all_tags()
             return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False, indent=2))]
-        
+
         elif name == "get_books_by_sales":
             limit = arguments.get("limit", 10)
+            # 确保limit是有效的整数
+            try:
+                limit = int(limit) if limit is not None else 10
+                if limit <= 0:
+                    limit = 10
+            except (ValueError, TypeError):
+                limit = 10
             result = await get_books_by_sales(limit)
             return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False, indent=2))]
-        
+
         else:
             raise ValueError(f"未知的工具: {name}")
-    
+
     except Exception as e:
+        import traceback
         error_result = {
             "error": True,
-            "message": str(e)
+            "message": str(e),
+            "type": type(e).__name__
         }
+        # 在开发环境中，可以包含更详细的错误信息
+        if os.getenv("DEBUG", "false").lower() == "true":
+            error_result["traceback"] = traceback.format_exc()
         return [TextContent(type="text", text=json.dumps(error_result, ensure_ascii=False, indent=2))]
 
 
@@ -147,29 +199,28 @@ async def search_books(keyword: str = None, tag: str = None, limit: int = 20) ->
     try:
         connection = get_db_connection()
         cursor = connection.cursor(dictionary=True)
-        
-        # 检查tags的存储方式（ElementCollection可能创建books_tags表或使用JSON列）
-        cursor.execute("SHOW TABLES LIKE 'books_tags'")
-        has_tags_table = cursor.fetchone() is not None
-        
+
+        # 检测tags表的实际结构
+        tags_table_name, book_id_column = get_tags_table_info(cursor)
+
         # 构建SQL查询
-        if has_tags_table:
-            # 如果存在books_tags表，使用JOIN查询
-            query = """
+        if tags_table_name and book_id_column:
+            # 如果存在tags表，使用JOIN查询
+            query = f"""
                 SELECT DISTINCT b.*, bs.inventory 
                 FROM books b 
                 LEFT JOIN book_stock bs ON b.id = bs.book_id
             """
             if tag:
-                query += " INNER JOIN books_tags bt ON b.id = bt.books_id"
+                query += f" INNER JOIN {tags_table_name} bt ON b.id = bt.{book_id_column}"
             query += " WHERE b.deleted = 0"
             params = []
-            
+
             if keyword:
                 query += " AND (LOWER(b.title) LIKE %s OR LOWER(b.author) LIKE %s)"
                 keyword_pattern = f"%{keyword.lower()}%"
                 params.extend([keyword_pattern, keyword_pattern])
-            
+
             if tag:
                 query += " AND bt.tags = %s"
                 params.append(tag)
@@ -177,12 +228,12 @@ async def search_books(keyword: str = None, tag: str = None, limit: int = 20) ->
             # 如果tags存储在JSON列中
             query = "SELECT b.*, bs.inventory FROM books b LEFT JOIN book_stock bs ON b.id = bs.book_id WHERE b.deleted = 0"
             params = []
-            
+
             if keyword:
                 query += " AND (LOWER(b.title) LIKE %s OR LOWER(b.author) LIKE %s)"
                 keyword_pattern = f"%{keyword.lower()}%"
                 params.extend([keyword_pattern, keyword_pattern])
-            
+
             if tag:
                 # 尝试JSON_CONTAINS（MySQL 5.7+）
                 try:
@@ -192,18 +243,18 @@ async def search_books(keyword: str = None, tag: str = None, limit: int = 20) ->
                     # 如果JSON_CONTAINS不可用，使用LIKE
                     query += " AND b.tags LIKE %s"
                     params.append(f"%{tag}%")
-        
+
         query += " ORDER BY b.sales DESC LIMIT %s"
         params.append(limit)
-        
+
         cursor.execute(query, params)
         books = cursor.fetchall()
-        
-        # 获取tags（如果使用books_tags表）
-        if has_tags_table:
+
+        # 获取tags（如果使用tags表）
+        if tags_table_name and book_id_column:
             for book in books:
                 book_id = book['id']
-                cursor.execute("SELECT tags FROM books_tags WHERE books_id = %s", (book_id,))
+                cursor.execute(f"SELECT tags FROM {tags_table_name} WHERE {book_id_column} = %s", (book_id,))
                 tag_rows = cursor.fetchall()
                 book['tags'] = [row['tags'] for row in tag_rows] if tag_rows else []
         else:
@@ -219,13 +270,13 @@ async def search_books(keyword: str = None, tag: str = None, limit: int = 20) ->
                         book['tags'] = []
                 else:
                     book['tags'] = []
-        
+
         return {
             "success": True,
             "count": len(books),
             "books": books
         }
-    
+
     except Error as e:
         return {
             "success": False,
@@ -243,11 +294,10 @@ async def get_book_by_id(book_id: int) -> dict:
     try:
         connection = get_db_connection()
         cursor = connection.cursor(dictionary=True)
-        
-        # 检查tags的存储方式
-        cursor.execute("SHOW TABLES LIKE 'books_tags'")
-        has_tags_table = cursor.fetchone() is not None
-        
+
+        # 检测tags表的实际结构
+        tags_table_name, book_id_column = get_tags_table_info(cursor)
+
         query = """
             SELECT b.*, bs.inventory 
             FROM books b 
@@ -256,16 +306,16 @@ async def get_book_by_id(book_id: int) -> dict:
         """
         cursor.execute(query, (book_id,))
         book = cursor.fetchone()
-        
+
         if not book:
             return {
                 "success": False,
                 "error": f"未找到ID为 {book_id} 的图书"
             }
-        
+
         # 获取tags
-        if has_tags_table:
-            cursor.execute("SELECT tags FROM books_tags WHERE books_id = %s", (book_id,))
+        if tags_table_name and book_id_column:
+            cursor.execute(f"SELECT tags FROM {tags_table_name} WHERE {book_id_column} = %s", (book_id,))
             tag_rows = cursor.fetchall()
             book['tags'] = [row['tags'] for row in tag_rows] if tag_rows else []
         else:
@@ -280,12 +330,12 @@ async def get_book_by_id(book_id: int) -> dict:
                     book['tags'] = []
             else:
                 book['tags'] = []
-        
+
         return {
             "success": True,
             "book": book
         }
-    
+
     except Error as e:
         return {
             "success": False,
@@ -303,19 +353,18 @@ async def get_all_tags() -> dict:
     try:
         connection = get_db_connection()
         cursor = connection.cursor()
-        
-        # 检查tags的存储方式
-        cursor.execute("SHOW TABLES LIKE 'books_tags'")
-        has_tags_table = cursor.fetchone() is not None
-        
+
+        # 检测tags表的实际结构
+        tags_table_name, book_id_column = get_tags_table_info(cursor)
+
         all_tags = set()
-        
-        if has_tags_table:
-            # 如果使用books_tags表
-            query = """
+
+        if tags_table_name and book_id_column:
+            # 如果使用tags表
+            query = f"""
                 SELECT DISTINCT bt.tags 
-                FROM books_tags bt 
-                INNER JOIN books b ON bt.books_id = b.id 
+                FROM {tags_table_name} bt 
+                INNER JOIN books b ON bt.{book_id_column} = b.id 
                 WHERE b.deleted = 0
             """
             cursor.execute(query)
@@ -336,12 +385,12 @@ async def get_all_tags() -> dict:
                             all_tags.update(tags)
                     except:
                         pass
-        
+
         return {
             "success": True,
             "tags": sorted(list(all_tags))
         }
-    
+
     except Error as e:
         return {
             "success": False,
@@ -356,14 +405,18 @@ async def get_all_tags() -> dict:
 async def get_books_by_sales(limit: int = 10) -> dict:
     """获取按销量排序的图书"""
     connection = None
+    cursor = None
     try:
+        # 确保limit是有效的整数
+        if not isinstance(limit, int) or limit <= 0:
+            limit = 10
+
         connection = get_db_connection()
         cursor = connection.cursor(dictionary=True)
-        
-        # 检查tags的存储方式
-        cursor.execute("SHOW TABLES LIKE 'books_tags'")
-        has_tags_table = cursor.fetchone() is not None
-        
+
+        # 检测tags表的实际结构
+        tags_table_name, book_id_column = get_tags_table_info(cursor)
+
         query = """
             SELECT b.*, bs.inventory 
             FROM books b 
@@ -374,14 +427,21 @@ async def get_books_by_sales(limit: int = 10) -> dict:
         """
         cursor.execute(query, (limit,))
         books = cursor.fetchall()
-        
+
         # 获取tags
         for book in books:
-            book_id = book['id']
-            if has_tags_table:
-                cursor.execute("SELECT tags FROM books_tags WHERE books_id = %s", (book_id,))
-                tag_rows = cursor.fetchall()
-                book['tags'] = [row['tags'] for row in tag_rows] if tag_rows else []
+            book_id = book.get('id')
+            if not book_id:
+                continue
+
+            if tags_table_name and book_id_column:
+                try:
+                    cursor.execute(f"SELECT tags FROM {tags_table_name} WHERE {book_id_column} = %s", (book_id,))
+                    tag_rows = cursor.fetchall()
+                    book['tags'] = [row['tags'] for row in tag_rows] if tag_rows else []
+                except Exception as e:
+                    # 如果查询tags失败，设置为空列表
+                    book['tags'] = []
             else:
                 # 处理tags字段（从JSON字符串转换为列表）
                 if book.get('tags'):
@@ -394,35 +454,61 @@ async def get_books_by_sales(limit: int = 10) -> dict:
                         book['tags'] = []
                 else:
                     book['tags'] = []
-        
+
         return {
             "success": True,
             "count": len(books),
             "books": books
         }
-    
+
     except Error as e:
         return {
             "success": False,
             "error": f"数据库查询错误: {str(e)}"
         }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"处理错误: {str(e)} (类型: {type(e).__name__})"
+        }
     finally:
         if connection and connection.is_connected():
-            cursor.close()
+            if cursor:
+                cursor.close()
             connection.close()
 
 
 async def main():
     """主函数：启动MCP服务器"""
-    # 使用stdio_server创建标准输入输出流
-    async with stdio_server() as (read_stream, write_stream):
-        await app.run(
-            read_stream,
-            write_stream,
-            app.create_initialization_options()
-        )
+    try:
+        # 使用stdio_server创建标准输入输出流
+        async with stdio_server() as (read_stream, write_stream):
+            await app.run(
+                read_stream,
+                write_stream,
+                app.create_initialization_options()
+            )
+    except Exception as e:
+        # 将错误输出到stderr，这样Cherry Studio可以看到错误信息
+        import sys
+        print(f"MCP服务器启动失败: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc(file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        # 正常退出
+        pass
+    except Exception as e:
+        import sys
+
+        print(f"MCP服务器错误: {e}", file=sys.stderr)
+        import traceback
+
+        traceback.print_exc(file=sys.stderr)
+        sys.exit(1)
 

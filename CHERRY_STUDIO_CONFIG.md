@@ -25,13 +25,13 @@ python
 
 **参数：**
 ```
-C:\Users\96317\Desktop\homework\DA_ER\Web APP\bookstore_backend\mcp-server\server.py
+C:\Users\96317\Desktop\homework\DA_ER\Web APP\bookstore_MCP_Server\server.py
 ```
 （请根据你的实际路径修改）
 
 **工作目录：**
 ```
-C:\Users\96317\Desktop\homework\DA_ER\Web APP\bookstore_backend\mcp-server
+C:\Users\96317\Desktop\homework\DA_ER\Web APP\bookstore_MCP_Server
 ```
 
 **环境变量（可选，如果已在系统环境变量中设置则不需要）：**
@@ -55,7 +55,7 @@ C:\Python\python.exe
 
 **参数：**
 ```
-C:\Users\96317\Desktop\homework\DA_ER\Web APP\bookstore_backend\mcp-server\server.py
+C:\Users\96317\Desktop\homework\DA_ER\Web APP\bookstore_MCP_Server\server.py
 ```
 
 ### 3. 保存并启用
@@ -104,7 +104,7 @@ pip install mcp mysql-connector-python
 
 如果路径中包含空格或特殊字符，请使用引号：
 ```
-"C:\Users\96317\Desktop\homework\DA_ER\Web APP\bookstore_backend\mcp-server\server.py"
+"C:\Users\96317\Desktop\homework\DA_ER\Web APP\bookstore_MCP_Server\server.py"
 ```
 
 ## 配置示例（JSON格式）
@@ -117,9 +117,9 @@ pip install mcp mysql-connector-python
     "bookstore-mcp": {
       "command": "python",
       "args": [
-        "C:\\Users\\96317\\Desktop\\homework\\DA_ER\\Web APP\\bookstore_backend\\mcp-server\\server.py"
+        "C:\\Users\\96317\\Desktop\\homework\\DA_ER\\Web APP\\bookstore_MCP_Server\\server.py"
       ],
-      "cwd": "C:\\Users\\96317\\Desktop\\homework\\DA_ER\\Web APP\\bookstore_backend\\mcp-server",
+      "cwd": "C:\\Users\\96317\\Desktop\\homework\\DA_ER\\Web APP\\bookstore_MCP_Server",
       "env": {
         "DB_HOST": "localhost",
         "DB_PORT": "3306",
@@ -154,7 +154,7 @@ uv
 
 **参数：**
 ```
-run python C:\Users\96317\Desktop\homework\DA_ER\Web APP\bookstore_backend\mcp-server\server.py
+run python C:\Users\96317\Desktop\homework\DA_ER\Web APP\bookstore_MCP_Server\server.py
 ```
 
 ## 测试服务器
