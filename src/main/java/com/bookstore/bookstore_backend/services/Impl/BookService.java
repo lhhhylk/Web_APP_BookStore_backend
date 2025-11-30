@@ -1,27 +1,33 @@
 package com.bookstore.bookstore_backend.services.Impl;
 
 import com.bookstore.bookstore_backend.model.book.Book;
+import com.bookstore.bookstore_backend.model.book.BookContent;
 import com.bookstore.bookstore_backend.model.book.BookDTO;
 import com.bookstore.bookstore_backend.model.book.BookStock;
 import com.bookstore.bookstore_backend.model.comment.Comment;
 import com.bookstore.bookstore_backend.model.comment.CommentDTO;
+import com.bookstore.bookstore_backend.repository.BookContentRepository;
 import com.bookstore.bookstore_backend.repository.BookRepository;
 import com.bookstore.bookstore_backend.repository.CommentRepository;
 import com.bookstore.bookstore_backend.repository.BookStockRepository;
 import com.bookstore.bookstore_backend.services.IBookService;
+import com.bookstore.bookstore_backend.services.ITagService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.hibernate.Hibernate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -36,6 +42,12 @@ public class BookService implements IBookService {
     private BookRepository bookRepository;
 
     @Autowired
+    private BookContentRepository bookContentRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @Autowired
     private CommentRepository commentRepository;
 
     @Autowired
@@ -43,6 +55,9 @@ public class BookService implements IBookService {
 
     @Autowired
     private RedisTemplate<String, Object> redisTemplate; // 新增：RedisTemplate注入
+
+    @Autowired
+    private ITagService tagService; // 标签服务
 
     private final ObjectMapper objectMapper = new ObjectMapper(); // 用于序列化/反序列化
 
@@ -54,6 +69,82 @@ public class BookService implements IBookService {
         }
     }
 
+    private Optional<BookContent> fetchBookContent(Long bookId) {
+        if (bookId == null) {
+            return Optional.empty();
+        }
+        try {
+            return bookContentRepository.findByBookIdOrLegacyId(bookId, String.valueOf(bookId));
+        } catch (Exception ex) {
+            logger.warn("Failed to fetch book content for book {}: {}", bookId, ex.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    private void loadBookContent(Book book) {
+        if (book == null || book.getId() == null) {
+            return;
+        }
+        fetchBookContent(book.getId()).ifPresentOrElse(content -> {
+            book.setCover(content.getCover());
+            book.setDescription(content.getDescription());
+        }, () -> {
+            LegacyBookContent legacy = fetchLegacyBookContent(book.getId());
+            if (legacy != null) {
+                book.setCover(legacy.cover());
+                book.setDescription(legacy.description());
+                saveBookContent(book.getId(), legacy.cover(), legacy.description());
+            }
+        });
+    }
+
+    private void saveBookContent(Long bookId, String cover, String description) {
+        if (bookId == null) {
+            return;
+        }
+        BookContent content = fetchBookContent(bookId).orElseGet(() -> {
+            BookContent fresh = new BookContent();
+            fresh.setBookId(bookId);
+            return fresh;
+        });
+        if (cover != null) {
+            content.setCover(cover);
+        }
+        if (description != null) {
+            content.setDescription(description);
+        }
+        bookContentRepository.save(content);
+    }
+
+    private void enrichBook(Book book) {
+        if (book == null) {
+            return;
+        }
+        loadInventory(book);
+        loadBookContent(book);
+    }
+
+    private LegacyBookContent fetchLegacyBookContent(Long bookId) {
+        try {
+            return jdbcTemplate.queryForObject(
+                    "SELECT cover, description FROM books WHERE id = ?",
+                    (rs, rowNum) -> new LegacyBookContent(
+                            rs.getString("cover"),
+                            rs.getString("description")
+                    ),
+                    bookId
+            );
+        } catch (EmptyResultDataAccessException ex) {
+            logger.warn("Legacy content not found for book {}", bookId);
+            return null;
+        } catch (Exception ex) {
+            logger.error("Failed to fetch legacy content for book {}: {}", bookId, ex.getMessage());
+            return null;
+        }
+    }
+
+    private record LegacyBookContent(String cover, String description) {}
+
     // **新增：从Redis获取书籍的辅助方法**
     private Book getBookFromCache(Long id) {
         try {
@@ -61,8 +152,11 @@ public class BookService implements IBookService {
             Book cached = (Book) redisTemplate.opsForValue().get(key);
             if (cached != null) {
                 logger.info("Cache hit for book id: {}", id);
-                // **新增：反序列化后，Transient字段需重新加载（但inventory在put时已设）**
+                // **新增：反序列化后，Transient字段需重新加载（但inventory/content在put时已设）**
                 loadInventory(cached);  // 保险起见，重新合并库存（若TTL内不变）
+                if (cached.getCover() == null || cached.getDescription() == null) {
+                    loadBookContent(cached);
+                }
                 return cached;
             }
         } catch (Exception e) {
@@ -117,7 +211,7 @@ public class BookService implements IBookService {
                 // 用缓存覆盖基本信息
                 BeanUtils.copyProperties(cachedBook, book, "comments"); // 避免覆盖comments
             } else {
-                loadInventory(book);
+                enrichBook(book);
                 putBookToCache(book); // 缓存完整书籍
             }
         });
@@ -133,7 +227,7 @@ public class BookService implements IBookService {
             if (cachedBook != null) {
                 BeanUtils.copyProperties(cachedBook, book, "comments");
             } else {
-                loadInventory(book);
+                enrichBook(book);
                 putBookToCache(book);
             }
         });
@@ -155,7 +249,7 @@ public class BookService implements IBookService {
         if (book == null) {
             book = bookRepository.findByIdAndDeletedFalse(id)
                     .orElseThrow(() -> new IllegalArgumentException("书籍不存在或已被删除"));
-            loadInventory(book);
+            enrichBook(book);
             putBookToCache(book); // 缓存完整书籍
         }
         return book;
@@ -181,8 +275,9 @@ public class BookService implements IBookService {
             stock.setInventory(100);  // 默认值
         }
         bookStockRepository.save(stock);
+        saveBookContent(savedBook.getId(), book.getCover(), book.getDescription());
         // **加载到 Transient**
-        loadInventory(savedBook);
+        enrichBook(savedBook);
         // **新增：缓存新书籍**
         putBookToCache(savedBook);
         logger.info("New book saved and cached: id={}", savedBook.getId());
@@ -198,6 +293,7 @@ public class BookService implements IBookService {
                 .orElseThrow(() -> new IllegalArgumentException("书籍不存在，参数异常"));
         book.setDeleted(true);
         bookRepository.save(book);
+        bookContentRepository.deleteById(id);
         // **新增：删除缓存**
         evictBookFromCache(id);
         logger.info("Book deleted (soft) and cache evicted: id={}", id);
@@ -277,8 +373,9 @@ public class BookService implements IBookService {
         bookStockRepository.save(stock);
 
         Book updated = bookRepository.save(existingBook);
-        // **加载最新库存**
-        loadInventory(updated);
+        saveBookContent(id, bookDTO.getCover(), bookDTO.getDescription());
+        // **加载最新库存与内容**
+        enrichBook(updated);
         // **新增：更新后重新缓存**
         putBookToCache(updated);
         logger.info("Book updated and cache refreshed: id={}", id);
@@ -294,10 +391,96 @@ public class BookService implements IBookService {
             if (cachedBook != null) {
                 BeanUtils.copyProperties(cachedBook, book, "comments");
             } else {
-                loadInventory(book);
+                enrichBook(book);
                 putBookToCache(book);
             }
         });
         return books;
+    }
+
+    @Override
+    public Page<Book> getBooksByTagGraph(String keyword, String tag, Pageable pageable) {
+        if (tag == null || tag.trim().isEmpty()) {
+            // 如果没有标签，使用普通搜索
+            return getBooks(keyword, null, pageable);
+        }
+        
+        // 从Neo4j中查找与指定标签通过2跳关联的所有标签
+        Set<String> relatedTags = tagService.findRelatedTags(tag);
+        logger.info("标签 '{}' 关联到的标签: {}", tag, relatedTags);
+        
+        // 在MySQL中搜索所有带有这些标签中任意一个或多个的图书
+        List<String> tagList = relatedTags.isEmpty() ? null : new ArrayList<>(relatedTags);
+        Page<Book> page = bookRepository.findBooksByKeywordAndTagsWithPaginationAndNotDeleted(keyword, tagList, pageable);
+        
+        // 为每页书籍加载完整信息
+        page.getContent().forEach(book -> {
+            Book cachedBook = getBookFromCache(book.getId());
+            if (cachedBook != null) {
+                BeanUtils.copyProperties(cachedBook, book, "comments");
+            } else {
+                enrichBook(book);
+                putBookToCache(book);
+            }
+        });
+        
+        return page;
+    }
+
+    @Override
+    public Page<Book> getBooksByTagGraph(String keyword, List<String> tags, Pageable pageable) {
+        if (tags == null || tags.isEmpty()) {
+            // 如果没有标签，使用普通搜索
+            return getBooks(keyword, null, pageable);
+        }
+        
+        // 从Neo4j中查找与指定标签通过2跳关联的所有标签
+        Set<String> relatedTags = tagService.findRelatedTags(tags);
+        logger.info("标签 {} 关联到的标签: {}", tags, relatedTags);
+        
+        // 在MySQL中搜索所有带有这些标签中任意一个或多个的图书
+        List<String> tagList = relatedTags.isEmpty() ? null : new ArrayList<>(relatedTags);
+        Page<Book> page = bookRepository.findBooksByKeywordAndTagsWithPaginationAndNotDeleted(keyword, tagList, pageable);
+        
+        // 为每页书籍加载完整信息
+        page.getContent().forEach(book -> {
+            Book cachedBook = getBookFromCache(book.getId());
+            if (cachedBook != null) {
+                BeanUtils.copyProperties(cachedBook, book, "comments");
+            } else {
+                enrichBook(book);
+                putBookToCache(book);
+            }
+        });
+        
+        return page;
+    }
+
+    @Override
+    public long countBooksByTagGraph(String keyword, String tag) {
+        if (tag == null || tag.trim().isEmpty()) {
+            return countBooks(keyword, null);
+        }
+        
+        // 从Neo4j中查找与指定标签通过2跳关联的所有标签
+        Set<String> relatedTags = tagService.findRelatedTags(tag);
+        List<String> tagList = relatedTags.isEmpty() ? null : new ArrayList<>(relatedTags);
+        
+        // 统计符合条件的图书数量
+        return bookRepository.countBooksByKeywordAndTagsAndNotDeleted(keyword, tagList);
+    }
+
+    @Override
+    public long countBooksByTagGraph(String keyword, List<String> tags) {
+        if (tags == null || tags.isEmpty()) {
+            return countBooks(keyword, null);
+        }
+        
+        // 从Neo4j中查找与指定标签通过2跳关联的所有标签
+        Set<String> relatedTags = tagService.findRelatedTags(tags);
+        List<String> tagList = relatedTags.isEmpty() ? null : new ArrayList<>(relatedTags);
+        
+        // 统计符合条件的图书数量
+        return bookRepository.countBooksByKeywordAndTagsAndNotDeleted(keyword, tagList);
     }
 }

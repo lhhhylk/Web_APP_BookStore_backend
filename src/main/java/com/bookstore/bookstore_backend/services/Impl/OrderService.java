@@ -2,8 +2,10 @@ package com.bookstore.bookstore_backend.services.Impl;
 
 import com.bookstore.bookstore_backend.model.User.User;
 import com.bookstore.bookstore_backend.model.book.Book;
+import com.bookstore.bookstore_backend.model.book.BookContent;
 import com.bookstore.bookstore_backend.model.book.BookStock;
 import com.bookstore.bookstore_backend.model.order.*;
+import com.bookstore.bookstore_backend.repository.BookContentRepository;
 import com.bookstore.bookstore_backend.repository.BookRepository;
 import com.bookstore.bookstore_backend.repository.OrderRepository;
 import com.bookstore.bookstore_backend.repository.UserRepository;
@@ -29,6 +31,8 @@ public class OrderService implements IOrderService {
     @Autowired
     private BookRepository bookRepository;
     @Autowired
+    private BookContentRepository bookContentRepository;
+    @Autowired
     private UserRepository userRepository;
     @Autowired
     private BookStockRepository bookStockRepository;
@@ -53,7 +57,11 @@ public class OrderService implements IOrderService {
                 itemDTO.setNumber(item.getNumber());
                 itemDTO.setBookTitle(item.getBook().getTitle());
                 itemDTO.setBookPrice(item.getBook().getPrice());
-                itemDTO.setBookCover(item.getBook().getCover());
+                Long bookId = item.getBookId();
+                BookContent content = bookContentRepository
+                        .findByBookIdOrLegacyId(bookId, bookId != null ? String.valueOf(bookId) : null)
+                        .orElse(null);
+                itemDTO.setBookCover(content != null ? content.getCover() : null);
                 itemDTO.setLineTotal(item.getLineTotal());
                 return itemDTO;
             }).collect(Collectors.toList());

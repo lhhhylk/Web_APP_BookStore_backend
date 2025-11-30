@@ -3,7 +3,6 @@ package com.bookstore.bookstore_backend.model.book;
 import com.bookstore.bookstore_backend.model.comment.Comment;
 import java.io.Serializable;
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import org.hibernate.Hibernate;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -31,12 +30,13 @@ public class Book implements Serializable {
     @ElementCollection(fetch = FetchType.EAGER)  // 变更：tags改为EAGER（简单集合，性能影响小；或保持LAZY+手动init）
     private List<String> tags = new ArrayList<>();  // 新增：默认空List防null
 
+    @Transient
     private String cover;
 
     @Column(nullable = false)
     private String price;
 
-    @Column(length = 2000)
+    @Transient
     private String description;
 
     @Column(nullable = false)
