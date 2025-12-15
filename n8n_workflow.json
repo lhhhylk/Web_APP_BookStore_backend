@@ -1,0 +1,280 @@
+{
+  "name": "E-BookStore Chatbot Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "bookstore-chatbot"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 解析请求体\nconst body = $input.item.json.body || $input.item.json;\nconst messages = body.messages || [];\n\n// 构建系统提示\nconst systemMessage = {\n  role: 'system',\n  content: `你是一个专业的图书推荐助手，可以帮助用户搜索图书、查看图书详情、获取热门图书等。\n你可以使用以下工具来帮助用户：\n1. search_books - 搜索图书（按书名、作者或标签）\n2. get_book_by_id - 根据ID获取图书详情\n3. get_all_tags - 获取所有可用的图书标签\n4. get_books_by_sales - 获取销量排行榜\n\n当用户询问图书相关信息时，你应该主动使用这些工具来获取准确的信息。\n回答要友好、专业，并且要基于工具返回的实际数据。`\n};\n\n// 添加系统消息\nconst allMessages = [systemMessage, ...messages];\n\nreturn {\n  json: {\n    messages: allMessages,\n    originalRequest: body\n  }\n};"
+      },
+      "id": "prepare-messages",
+      "name": "准备消息",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "model": "deepseek-chat",
+        "options": {
+          "temperature": 0.7,
+          "tools": [
+            {
+              "type": "function",
+              "function": {
+                "name": "search_books",
+                "description": "根据关键词搜索图书。可以按书名、作者进行模糊搜索，也可以按标签筛选。",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "keyword": {
+                      "type": "string",
+                      "description": "搜索关键词，可以是书名或作者名（可选）"
+                    },
+                    "tag": {
+                      "type": "string",
+                      "description": "图书标签，用于筛选特定类型的图书（可选）"
+                    },
+                    "limit": {
+                      "type": "integer",
+                      "description": "返回结果的最大数量，默认20",
+                      "default": 20
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "type": "function",
+              "function": {
+                "name": "get_book_by_id",
+                "description": "根据图书ID获取图书的详细信息，包括库存信息。",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "book_id": {
+                      "type": "integer",
+                      "description": "图书的唯一标识ID"
+                    }
+                  },
+                  "required": ["book_id"]
+                }
+              }
+            },
+            {
+              "type": "function",
+              "function": {
+                "name": "get_all_tags",
+                "description": "获取数据库中所有可用的图书标签列表。",
+                "parameters": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            },
+            {
+              "type": "function",
+              "function": {
+                "name": "get_books_by_sales",
+                "description": "获取按销量排序的图书列表，用于查看热门图书。",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "limit": {
+                      "type": "integer",
+                      "description": "返回结果的最大数量，默认10",
+                      "default": 10
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "id": "ai-agent",
+      "name": "DeepSeek AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1,
+      "position": [650, 300],
+      "credentials": {
+        "deepseekApi": {
+          "id": "deepseek-api-key",
+          "name": "DeepSeek API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-tool-calls",
+              "leftValue": "={{ $json.tool_calls }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "exists"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-tool-calls",
+      "name": "检查工具调用",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 处理工具调用\nconst toolCalls = $input.item.json.tool_calls || [];\nconst results = [];\n\nfor (const toolCall of toolCalls) {\n  const toolName = toolCall.function.name;\n  const toolArgs = JSON.parse(toolCall.function.arguments || '{}');\n  \n  results.push({\n    tool_name: toolName,\n    tool_arguments: toolArgs,\n    tool_call_id: toolCall.id\n  });\n}\n\nreturn results.map(item => ({ json: item }));"
+      },
+      "id": "extract-tool-calls",
+      "name": "提取工具调用",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8000/mcp-tool",
+        "authentication": "none",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "tool_name",
+              "value": "={{ $json.tool_name }}"
+            },
+            {
+              "name": "arguments",
+              "value": "={{ JSON.stringify($json.tool_arguments) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "call-mcp-tool",
+      "name": "调用MCP工具",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1250, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 合并工具调用结果\nconst toolResults = $input.all();\nconst originalMessages = $('准备消息').item.json.messages;\nconst assistantMessage = $('DeepSeek AI Agent').item.json;\n\n// 构建工具调用消息\nconst toolMessages = [];\nfor (const result of toolResults) {\n  const toolCall = assistantMessage.tool_calls.find(\n    tc => tc.function.name === result.json.tool_name\n  );\n  \n  if (toolCall) {\n    toolMessages.push({\n      role: 'assistant',\n      content: null,\n      tool_calls: [toolCall]\n    });\n    \n    toolMessages.push({\n      role: 'tool',\n      content: JSON.stringify(result.json.result || result.json),\n      tool_call_id: toolCall.id\n    });\n  }\n}\n\n// 合并所有消息\nconst allMessages = [...originalMessages, ...toolMessages];\n\nreturn {\n  json: {\n    messages: allMessages\n  }\n};"
+      },
+      "id": "merge-tool-results",
+      "name": "合并工具结果",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1450, 200]
+    },
+    {
+      "parameters": {
+        "model": "deepseek-chat",
+        "options": {
+          "temperature": 0.7
+        }
+      },
+      "id": "final-response",
+      "name": "生成最终回复",
+      "type": "@n8n/n8n-nodes-langchain.lmChat",
+      "typeVersion": 1,
+      "position": [1650, 200],
+      "credentials": {
+        "deepseekApi": {
+          "id": "deepseek-api-key",
+          "name": "DeepSeek API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"message\": $json.text || $json.content, \"tool_calls\": $('DeepSeek AI Agent').item.json.tool_calls || null } }}",
+        "options": {}
+      },
+      "id": "respond-webhook",
+      "name": "返回响应",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1850, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"message\": $json.text || $json.content || $json.message } }}",
+        "options": {}
+      },
+      "id": "respond-direct",
+      "name": "直接返回",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1050, 400]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [[{ "node": "准备消息", "type": "main", "index": 0 }]]
+    },
+    "准备消息": {
+      "main": [[{ "node": "DeepSeek AI Agent", "type": "main", "index": 0 }]]
+    },
+    "DeepSeek AI Agent": {
+      "main": [[{ "node": "检查工具调用", "type": "main", "index": 0 }]]
+    },
+    "检查工具调用": {
+      "main": [
+        [{ "node": "提取工具调用", "type": "main", "index": 0 }],
+        [{ "node": "直接返回", "type": "main", "index": 0 }]
+      ]
+    },
+    "提取工具调用": {
+      "main": [[{ "node": "调用MCP工具", "type": "main", "index": 0 }]]
+    },
+    "调用MCP工具": {
+      "main": [[{ "node": "合并工具结果", "type": "main", "index": 0 }]]
+    },
+    "合并工具结果": {
+      "main": [[{ "node": "生成最终回复", "type": "main", "index": 0 }]]
+    },
+    "生成最终回复": {
+      "main": [[{ "node": "返回响应", "type": "main", "index": 0 }]]
+    },
+    "直接返回": {
+      "main": [[{ "node": "返回响应", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "versionId": "1"
+}
+
