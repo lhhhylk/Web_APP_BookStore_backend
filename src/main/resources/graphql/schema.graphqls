@@ -1,0 +1,20 @@
+type Book {
+  id: ID!
+  title: String!
+  author: String!
+  price: String!
+  cover: String
+  description: String
+  deleted: Boolean!
+  sales: Int!
+  inventory: Int!
+  tags: [String!]!
+}
+
+type Query {
+  """
+  按书名模糊查询图书，复用现有的 Service/DAO/Repository 逻辑
+  """
+  booksByTitle(title: String!): [Book!]!
+}
+

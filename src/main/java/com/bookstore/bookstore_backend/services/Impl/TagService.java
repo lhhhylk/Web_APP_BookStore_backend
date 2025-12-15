@@ -280,11 +280,16 @@ public class TagService implements ITagService {
         if (tagName == null || tagName.trim().isEmpty()) {
             return new HashSet<>();
         }
-        
-        List<String> relatedTags = tagNodeRepository.findRelatedTagsWithinTwoHops(tagName);
-        Set<String> result = new HashSet<>(relatedTags);
-        result.add(tagName); // 确保包含自身
-        return result;
+        try {
+            List<String> relatedTags = tagNodeRepository.findRelatedTagsWithinTwoHops(tagName);
+            Set<String> result = new HashSet<>(relatedTags);
+            result.add(tagName); // 确保包含自身
+            return result;
+        } catch (Exception e) {
+            // 当 Neo4j 不可用时，避免整个请求报错，退化为仅使用原始标签
+            logger.warn("Neo4j 不可用，使用退化标签搜索（仅使用原始标签: {}）: {}", tagName, e.getMessage());
+            return new HashSet<>(Collections.singletonList(tagName));
+        }
     }
 
     @Override
@@ -301,11 +306,16 @@ public class TagService implements ITagService {
         if (validTags.isEmpty()) {
             return new HashSet<>();
         }
-        
-        List<String> relatedTags = tagNodeRepository.findRelatedTagsWithinTwoHopsForMultiple(validTags);
-        Set<String> result = new HashSet<>(relatedTags);
-        result.addAll(validTags); // 确保包含输入的标签
-        return result;
+        try {
+            List<String> relatedTags = tagNodeRepository.findRelatedTagsWithinTwoHopsForMultiple(validTags);
+            Set<String> result = new HashSet<>(relatedTags);
+            result.addAll(validTags); // 确保包含输入的标签
+            return result;
+        } catch (Exception e) {
+            // 当 Neo4j 不可用时，避免整个请求报错，退化为仅使用原始标签集合
+            logger.warn("Neo4j 不可用，使用退化标签搜索（仅使用原始标签集合: {}）: {}", validTags, e.getMessage());
+            return new HashSet<>(validTags);
+        }
     }
 
     @Override

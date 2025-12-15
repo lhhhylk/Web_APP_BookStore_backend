@@ -9,9 +9,9 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.bookstore</groupId>
-    <artifactId>bookstore_backend</artifactId>
+    <artifactId>main_server</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>bookstore_backend</name>
+    <name>main_server</name>
     <description>bookstore_backend</description>
     <url/>
     <licenses>
@@ -34,6 +34,11 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jdbc</artifactId>
+        </dependency>
+        <!-- GraphQL 支持 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-graphql</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

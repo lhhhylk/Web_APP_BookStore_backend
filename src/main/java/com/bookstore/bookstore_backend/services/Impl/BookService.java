@@ -400,11 +400,12 @@ public class BookService implements IBookService {
 
     @Override
     public Page<Book> getBooksByTagGraph(String keyword, String tag, Pageable pageable) {
-        if (tag == null || tag.trim().isEmpty()) {
+        // 将 "undefined" 等无效标签视为未选择标签
+        if (tag == null || tag.trim().isEmpty() || "undefined".equalsIgnoreCase(tag.trim())) {
             // 如果没有标签，使用普通搜索
             return getBooks(keyword, null, pageable);
         }
-        
+
         // 从Neo4j中查找与指定标签通过2跳关联的所有标签
         Set<String> relatedTags = tagService.findRelatedTags(tag);
         logger.info("标签 '{}' 关联到的标签: {}", tag, relatedTags);

@@ -1,0 +1,6 @@
+要启动的服务：
+Redis（docker）
+Kafka（.\bin\windows\kafka-server-start.bat .\config\server.properties）
+MySQL
+MongoDB（设备->服务）
+neo4j（neo4j.bat console）
